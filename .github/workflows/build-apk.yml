@@ -26,7 +26,7 @@ jobs:
 
       - name: Create React Native 0.73 project
         run: |
-          npx react-native@0.73.0 init BuildProject --version 0.73.0 --skip-install
+          npx react-native@0.73.0 init BuildProject --version 0.73.0
           ls -la BuildProject
 
       - name: Copy your files into project
@@ -36,9 +36,10 @@ jobs:
           cp $GITHUB_WORKSPACE/App.js BuildProject/
           cp $GITHUB_WORKSPACE/index.js BuildProject/
           cp $GITHUB_WORKSPACE/package.json BuildProject/
+          ls -la BuildProject/
           ls -la BuildProject/src
 
-      - name: Install npm packages
+      - name: Install dependencies
         working-directory: BuildProject
         run: |
           npm install --legacy-peer-deps
@@ -53,7 +54,7 @@ jobs:
           sdkmanager "build-tools;33.0.0"
           sdkmanager "platform-tools"
 
-      - name: Fix Gradle memory & settings
+      - name: Fix Gradle settings
         working-directory: BuildProject/android
         run: |
           echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m" >> gradle.properties
