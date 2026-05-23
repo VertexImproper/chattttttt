@@ -1,15 +1,17 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout your code
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -17,31 +19,55 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Node
+      - name: Set up Node 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
+      - name: Create React Native 0.73 project
+        run: |
+          npx react-native@0.73.0 init BuildProject --version 0.73.0 --skip-install
+          ls -la BuildProject
+
+      - name: Copy your files into project
+        run: |
+          rm -f BuildProject/App.js BuildProject/index.js BuildProject/package.json
+          cp -r $GITHUB_WORKSPACE/src BuildProject/
+          cp $GITHUB_WORKSPACE/App.js BuildProject/
+          cp $GITHUB_WORKSPACE/index.js BuildProject/
+          cp $GITHUB_WORKSPACE/package.json BuildProject/
+          ls -la BuildProject/src
+
+      - name: Install npm packages
+        working-directory: BuildProject
+        run: |
+          npm install --legacy-peer-deps
+          npx react-native-asset
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install SDK packages
-        run: sdkmanager "platforms;android-33" "build-tools;33.0.0" "platform-tools"
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-33"
+          sdkmanager "build-tools;33.0.0"
+          sdkmanager "platform-tools"
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Setup vector icons
-        run: npx react-native-asset
-
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
+      - name: Fix Gradle memory & settings
+        working-directory: BuildProject/android
+        run: |
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m" >> gradle.properties
+          echo "org.gradle.daemon=false" >> gradle.properties
 
       - name: Build Release APK
-        run: cd android && ./gradlew assembleRelease
+        working-directory: BuildProject/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --stacktrace
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ChatPro-APK
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: BuildProject/android/app/build/outputs/apk/release/*.apk
